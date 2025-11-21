@@ -27,7 +27,7 @@ dynamic = ["version"]
 dependencies = [
     "authlib>=1.5.1,<2.0.0",
     "clerk-backend-api>=2.0.0,<3.0.0",
-    "reflex>=0.7.5",
+    "reflex>=0.8.0",
 ]
 
 classifiers = [
@@ -70,6 +70,8 @@ dev = [
     "pytest-pretty>=1.2.0",
     "ruff>=0.9.10",
     "semver>=3.0.4",
-    "reflex==0.7.5",  # https://github.com/reflex-dev/reflex/issues/5114 -- Pinned until this is fixed
+    "reflex>=0.8.0",
     "hatchling>=1.27.0",
+    "uvicorn>=0.38.0",
+    "psutil>=7.0.0",
 ]

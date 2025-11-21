@@ -121,9 +121,12 @@ def test_render(page: Page):
     I.e. Check components are visible.
     """
     page.pause()
-    expect(page.locator('[id="__next"]')).to_contain_text("reflex-clerk-api demo")
-    expect(page.locator('[id="__next"]')).to_contain_text("Getting Started")
-    expect(page.locator('[id="__next"]')).to_contain_text("Demos")
+    expect(page.get_by_role("heading", name="reflex-clerk-api demo")).to_contain_text(
+        "reflex-clerk-api demo"
+    )
+    expect(page.get_by_role("heading", name="Getting Started")).to_contain_text(
+        "Getting Started"
+    )
 
     expect(page.get_by_test_id("clerkstate_variables_and_methods")).to_be_visible()
     expect(page.get_by_test_id("clerk_loaded_and_signed_in_out_areas")).to_be_visible()

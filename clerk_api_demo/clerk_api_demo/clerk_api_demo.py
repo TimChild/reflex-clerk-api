@@ -124,7 +124,7 @@ def demo_page_header_and_description() -> rx.Component:
                 rx.code("async/await"),
                 " for all requests to the Clerk backend",
             ),
-            rx.list_item("supports reflex 0.7.x"),
+            rx.list_item("supports reflex 0.8.x"),
             rx.list_item(
                 "adds a helper for handling ",
                 rx.code("on_load"),

@@ -29,7 +29,7 @@ def add_sign_in_page(
         ),
         publishable_key=publishable_key,
     )
-    app.add_page(sign_in_page, route=route + "/[[...signin]]")
+    app.add_page(sign_in_page, route=route + "/[[...splat]]")
 
 
 def add_sign_up_page(
@@ -52,4 +52,4 @@ def add_sign_up_page(
         ),
         publishable_key=publishable_key,
     )
-    app.add_page(sign_up_page, route=route + "/[[...signup]]")
+    app.add_page(sign_up_page, route=route + "/[[...splat]]")
