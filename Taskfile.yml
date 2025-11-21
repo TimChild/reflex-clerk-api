@@ -37,17 +37,17 @@ tasks:
 
   bump-patch:
     cmds:
-      - uv run hatch version patch
+      - uvx hatch version patch
       - uv lock
 
   bump-minor:
     cmds:
-      - uv run hatch version minor
+      - uvx hatch version minor
       - uv lock
 
   bump-major:
     cmds:
-      - uv run hatch version major
+      - uvx hatch version major
       - uv lock
 
   publish:
