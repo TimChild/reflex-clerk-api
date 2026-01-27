@@ -3,7 +3,8 @@ import logging
 import os
 import time
 import uuid
-from typing import Any, Callable, ClassVar, TypeVar
+from collections.abc import Callable
+from typing import Any, ClassVar, TypeVar
 
 import authlib.jose.errors as jose_errors
 import clerk_backend_api
@@ -249,6 +250,10 @@ class ClerkUser(rx.State):
     last_name: str = ""
     username: str = ""
     email_address: str = ""
+    phone_number: str = ""
+    """The user's primary phone number in E.164 format (e.g., +12025551234)."""
+    phone_number_id: str = ""
+    """The Clerk phone_number_id for the primary phone number, used for updates."""
     has_image: bool = False
     image_url: str = ""
 
@@ -283,8 +288,67 @@ class ClerkUser(rx.State):
         self.email_address = (
             user.email_addresses[0].email_address if user.email_addresses else ""
         )
+        # Load primary phone number and its ID, falling back to the first if needed
+        if user.phone_numbers:
+            primary_phone = None
+            primary_id = getattr(user, "primary_phone_number_id", None)
+            if primary_id is not None:
+                for pn in user.phone_numbers:
+                    if getattr(pn, "id", None) == primary_id:
+                        primary_phone = pn
+                        break
+            if primary_phone is None:
+                primary_phone = user.phone_numbers[0]
+            self.phone_number = getattr(primary_phone, "phone_number", "") or ""
+            self.phone_number_id = getattr(primary_phone, "id", "") or ""
+        else:
+            self.phone_number = ""
+            self.phone_number_id = ""
         self.has_image = True if user.has_image is True else False
         self.image_url = user.image_url or ""
+
+    @rx.event
+    async def update_phone_number(
+        self, phone_number: str, verified: bool = False
+    ) -> None:
+        """Update the user's phone number in Clerk.
+
+        This will create a new phone number and set it as primary, then delete the old one
+        if it exists. Phone numbers must be in E.164 format (e.g., +12025551234).
+
+        Args:
+            phone_number: The new phone number in E.164 format.
+            verified: Whether to mark the phone number as verified. Defaults to False.
+                Set to True only if verification was handled externally (e.g., OTP flow).
+        """
+        # Skip if phone number hasn't changed
+        if phone_number == self.phone_number:
+            logging.debug("Phone number unchanged, skipping update")
+            return
+
+        old_phone_id = self.phone_number_id if self.phone_number_id else None
+
+        try:
+            # Use the helper function to avoid code duplication
+            new_phone = await update_user_phone_number(
+                self, phone_number, old_phone_id=old_phone_id, verified=verified
+            )
+
+            # Update local state
+            if new_phone:
+                self.phone_number = new_phone.phone_number or phone_number
+                self.phone_number_id = new_phone.id or ""
+            else:
+                # Phone was deleted (empty phone_number passed)
+                self.phone_number = ""
+                self.phone_number_id = ""
+
+        except clerk_backend_api.models.ClerkErrors:
+            logging.error("Clerk API error updating phone")
+            raise
+        except Exception:
+            logging.error("Error updating phone number")
+            raise
 
 
 class ClerkSessionSynchronizer(rx.Component):
@@ -546,6 +610,86 @@ async def get_user(current_state: rx.State) -> clerk_backend_api.models.User:
     if user is None:
         raise MissingUserError("No user found")
     return user
+
+
+async def update_user_phone_number(
+    current_state: rx.State,
+    phone_number: str,
+    old_phone_id: str | None = None,
+    verified: bool = False,
+) -> clerk_backend_api.models.PhoneNumber | None:
+    """Update the user's phone number in Clerk.
+
+    This creates a new phone number and sets it as primary. If old_phone_id is provided,
+    the old phone number will be deleted after the new one is created.
+
+    Phone numbers must be in E.164 format (e.g., +12025551234).
+
+    Args:
+        current_state: The `self` state from the current event handler.
+        phone_number: The new phone number in E.164 format. Empty string to remove phone.
+        old_phone_id: Optional ID of the old phone number to delete.
+        verified: Whether to mark the phone number as verified. Defaults to False.
+            Set to True only if verification was handled externally (e.g., OTP flow).
+
+    Returns:
+        The new PhoneNumber object if created, None if deleted.
+
+    Examples:
+
+    ```python
+    class State(rx.State):
+        @rx.event
+        async def update_my_phone(self) -> EventType:
+            new_phone = await clerk.update_user_phone_number(self, "+12025551234")
+            return rx.toast.success(f"Phone updated: {new_phone.phone_number}")
+
+        @rx.event
+        async def update_verified_phone(self) -> EventType:
+            # Only use verified=True if you've handled verification externally
+            new_phone = await clerk.update_user_phone_number(
+                self, "+12025551234", verified=True
+            )
+            return rx.toast.success("Phone updated and verified")
+    ```
+    """
+    clerk_state = await _get_state_within_handler(current_state, ClerkState)
+    user_id = clerk_state.user_id
+    if user_id is None:
+        raise MissingUserError("No user_id to update phone for")
+
+    new_phone: clerk_backend_api.models.PhoneNumber | None = None
+
+    if phone_number:
+        # Create new phone number (primary; verification controlled by parameter)
+        new_phone = await clerk_state.client.phone_numbers.create_async(
+            request=clerk_backend_api.models.CreatePhoneNumberRequestBody(
+                user_id=user_id,
+                phone_number=phone_number,
+                verified=verified,
+                primary=True,
+            )
+        )
+        logging.debug("Created new phone number for user")
+
+        # Delete old phone number if it existed
+        if old_phone_id:
+            try:
+                await clerk_state.client.phone_numbers.delete_async(
+                    phone_number_id=old_phone_id
+                )
+                logging.debug("Deleted old phone number")
+            except Exception:
+                logging.warning("Could not delete old phone number")
+    else:
+        # If phone_number is empty, just delete the old one
+        if old_phone_id:
+            await clerk_state.client.phone_numbers.delete_async(
+                phone_number_id=old_phone_id
+            )
+            logging.debug("Deleted phone number")
+
+    return new_phone
 
 
 def register_on_auth_change_handler(handler: EventCallback) -> None:
