@@ -51,6 +51,14 @@ homepage = "https://reflex-clerk-api-demo.adventuresoftim.com"
 [tool.pyright]
 venvPath = "."
 venv = ".venv"
+exclude = [
+    "**/*.pyi",  # Exclude auto-generated .pyi files (not committed, have generator bugs)
+    ".venv",     # Exclude virtual environment
+    "dist",      # Exclude build artifacts
+    "*.egg-info",
+    "**/.web",   # Exclude Reflex web build directory
+    "**/node_modules",  # Exclude npm dependencies
+]
 
 [tool.ruff.lint]
 extend-select = ["I", "RUF", "T20"]
