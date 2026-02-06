@@ -1,15 +1,15 @@
 [build-system]
-requires = ["setuptools", "wheel", "hatchling"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project.optional-dependencies]
 dev = ["build", "twine"]
 
-[tool.setuptools.packages.find]
-where = ["custom_components"]
+[tool.hatch.build.targets.wheel]
+packages = ["custom_components/reflex_clerk_api"]
 
-[tool.setuptools.dynamic]
-version = { attr = "reflex_clerk_api.__version__" }
+[tool.hatch.build]
+artifacts = ["*.pyi"]
 
 [tool.hatch.version]
 path = "custom_components/reflex_clerk_api/__init__.py"
