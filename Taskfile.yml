@@ -78,8 +78,8 @@ tasks:
       # This is the same as what `reflex component build` does, but selective to avoid
       # scanning tests/demo directories which causes ModuleNotFoundError (issue #5114)
       - cd custom_components && uv run python -m reflex.utils.pyi_generator reflex_clerk_api
-      # Build package from root (same as `python -m build .` in reflex component build)
-      - uv run python -m build .
+      # Build package using uv's native build command (works in GHA without installing build separately)
+      - uv build
 
   manual-publish:
     preconditions:
