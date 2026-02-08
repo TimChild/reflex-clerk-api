@@ -1,4 +1,4 @@
-__version__ = "1.2.2"
+__version__ = "1.2.3"
 
 from .authentication_components import sign_in, sign_up
 from .clerk_provider import (
