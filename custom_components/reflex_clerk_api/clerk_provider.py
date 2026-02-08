@@ -4,7 +4,7 @@ import os
 import time
 import uuid
 from collections.abc import Callable
-from typing import Any, ClassVar, TypeVar
+from typing import Any, ClassVar, Self, TypeVar, cast
 
 import authlib.jose.errors as jose_errors
 import clerk_backend_api
@@ -535,8 +535,8 @@ class ClerkProvider(ClerkBase):
     """The full URL or path to the waitlist page."""
 
     @classmethod
-    def create(cls, *children, **props) -> "ClerkProvider":
-        return super().create(*children, **props)
+    def create(cls, *children, **props) -> Self:
+        return cast(Self, super().create(*children, **props))
 
     def add_custom_code(self) -> list[str]:
         return []

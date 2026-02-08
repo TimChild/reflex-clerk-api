@@ -1,15 +1,15 @@
 [build-system]
-requires = ["setuptools", "wheel", "hatchling"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [project.optional-dependencies]
 dev = ["build", "twine"]
 
-[tool.setuptools.packages.find]
-where = ["custom_components"]
+[tool.hatch.build.targets.wheel]
+packages = ["custom_components/reflex_clerk_api"]
 
-[tool.setuptools.dynamic]
-version = { attr = "reflex_clerk_api.__version__" }
+[tool.hatch.build]
+artifacts = ["*.pyi"]
 
 [tool.hatch.version]
 path = "custom_components/reflex_clerk_api/__init__.py"
@@ -51,6 +51,14 @@ homepage = "https://reflex-clerk-api-demo.adventuresoftim.com"
 [tool.pyright]
 venvPath = "."
 venv = ".venv"
+exclude = [
+    "**/*.pyi",  # Exclude auto-generated .pyi files (not committed, have generator bugs)
+    ".venv",     # Exclude virtual environment
+    "dist",      # Exclude build artifacts
+    "*.egg-info",
+    "**/.web",   # Exclude Reflex web build directory
+    "**/node_modules",  # Exclude npm dependencies
+]
 
 [tool.ruff.lint]
 extend-select = ["I", "RUF", "T20"]

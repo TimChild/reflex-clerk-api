@@ -36,16 +36,19 @@ tasks:
       - uv run pyright
 
   bump-patch:
+    desc: Bump patch version (e.g., 1.1.3 -> 1.1.4)
     cmds:
       - uvx hatch version patch
       - uv lock
 
   bump-minor:
+    desc: Bump minor version (e.g., 1.1.3 -> 1.2.0)
     cmds:
       - uvx hatch version minor
       - uv lock
 
   bump-major:
+    desc: Bump major version (e.g., 1.1.3 -> 2.0.0)
     cmds:
       - uvx hatch version major
       - uv lock
@@ -68,6 +71,16 @@ tasks:
     cmds:
       - uv run pre-commit autoupdate
 
+  build-component:
+    desc: Build the reflex component (generates .pyi stubs and package dist)
+    cmds:
+      # Generate .pyi files from custom_components to avoid scanning tests/demo dirs
+      # This is the same as what `reflex component build` does, but selective to avoid
+      # scanning tests/demo directories which causes ModuleNotFoundError (issue #5114)
+      - cd custom_components && uv run python -m reflex.utils.pyi_generator reflex_clerk_api
+      # Build package from root (same as `python -m build .` in reflex component build)
+      - uv run python -m build .
+
   manual-publish:
     preconditions:
       # Check environment variable
@@ -75,8 +88,7 @@ tasks:
         msg: "PYPI_TOKEN is not set -- Add PYPI_TOKEN=... to .env file"
     cmds:
       - echo "Publishing to PyPI"
-      # - uv run reflex component build  # Until https://github.com/reflex-dev/reflex/issues/5114 is resolved
-      - uvx reflex==0.7.5 component build
+      - task: build-component
       - uv publish --token $PYPI_TOKEN
 
   manual-publish-docs:
