@@ -411,9 +411,10 @@ function ClerkSessionSynchronizer({{ children }}) {{
   // updated after a confirmed dispatch so transient token-fetch failures don't
   // poison the dedupe and prevent later retries.
   const lastSentRef = useRef({{ stateKey: null, addEvents: null }})
-  // Guards against overlapping getToken calls if the effect re-fires while one
-  // is still in flight.
-  const inFlightRef = useRef(false)
+  // Incremented on every effect run with new desired state. In-flight token
+  // fetches check this on resolve and bail if a newer effect has superseded
+  // them - prevents stale set_clerk_session dispatches after sign-out.
+  const requestIdRef = useRef(0)
 
   useEffect(() => {{
       // Wait for all dependencies to be ready.
@@ -426,9 +427,12 @@ function ClerkSessionSynchronizer({{ children }}) {{
         lastSentRef.current?.stateKey === stateKey &&
         lastSentRef.current?.addEvents === addEvents
       ) return
-      if (inFlightRef.current) return
+
+      const myRequestId = ++requestIdRef.current
 
       if (!isSignedIn) {{
+        // Always run the sign-out path immediately. Any in-flight token fetch
+        // will see myRequestId !== requestIdRef.current on resolve and drop.
         addEvents([ReflexEvent("{state}.clear_clerk_session")])
         lastSentRef.current = {{ stateKey, addEvents }}
         return
@@ -439,12 +443,13 @@ function ClerkSessionSynchronizer({{ children }}) {{
       // prematurely forces a logout while Clerk is still signed in.
       // Prefer skipCache (avoids near-expiry cached tokens); fall back if the
       // installed Clerk version doesn't support that option.
-      inFlightRef.current = true
       const fetchToken = () =>
         getToken({{ skipCache: true }}).catch(() => getToken())
       fetchToken()
         .catch(() => new Promise(resolve => setTimeout(resolve, 500)).then(fetchToken))
         .then(token => {{
+          // Drop if a newer effect run (e.g., sign-out) has superseded us.
+          if (myRequestId !== requestIdRef.current) return
           if (token) {{
             addEvents([ReflexEvent("{state}.set_clerk_session", {{token}})])
             lastSentRef.current = {{ stateKey, addEvents }}
@@ -456,10 +461,8 @@ function ClerkSessionSynchronizer({{ children }}) {{
           }}
         }})
         .catch(() => {{
+          if (myRequestId !== requestIdRef.current) return
           addEvents([ReflexEvent("{state}.clear_clerk_session")])
-        }})
-        .finally(() => {{
-          inFlightRef.current = false
         }})
   }}, [isLoaded, isSignedIn, addEvents, getToken])
 
