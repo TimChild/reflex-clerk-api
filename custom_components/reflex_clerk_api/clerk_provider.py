@@ -407,7 +407,13 @@ class ClerkSessionSynchronizer(rx.Component):
 function ClerkSessionSynchronizer({{ children }}) {{
   const {{ getToken, isLoaded, isSignedIn }} = useAuth()
   const [ addEvents ] = useContext(EventLoopContext)
+  // Tracks the last *successfully dispatched* (state, addEvents) pair. Only
+  // updated after a confirmed dispatch so transient token-fetch failures don't
+  // poison the dedupe and prevent later retries.
   const lastSentRef = useRef({{ stateKey: null, addEvents: null }})
+  // Guards against overlapping getToken calls if the effect re-fires while one
+  // is still in flight.
+  const inFlightRef = useRef(false)
 
   useEffect(() => {{
       // Wait for all dependencies to be ready.
@@ -420,28 +426,41 @@ function ClerkSessionSynchronizer({{ children }}) {{
         lastSentRef.current?.stateKey === stateKey &&
         lastSentRef.current?.addEvents === addEvents
       ) return
-      lastSentRef.current = {{ stateKey, addEvents }}
+      if (inFlightRef.current) return
 
-      if (isSignedIn) {{
-        // Prefer a fresh token; cached tokens can be close to expiry.
-        // If this Clerk version doesn't support skipCache, fall back to the default call.
-        Promise.resolve()
-          .then(() => getToken({{ skipCache: true }}))
-          .catch(() => getToken())
-          .then(token => {{
-            if (token) {{
-              addEvents([ReflexEvent("{state}.set_clerk_session", {{token}})])
-            }} else {{
-              // Token unavailable despite isSignedIn - clear to avoid stuck auth state.
-              addEvents([ReflexEvent("{state}.clear_clerk_session")])
-            }}
-          }}).catch(() => {{
-            // Token retrieval failed - clear to avoid stuck auth state.
-            addEvents([ReflexEvent("{state}.clear_clerk_session")])
-          }})
-      }} else {{
+      if (!isSignedIn) {{
         addEvents([ReflexEvent("{state}.clear_clerk_session")])
+        lastSentRef.current = {{ stateKey, addEvents }}
+        return
       }}
+
+      // isSignedIn: try to get a fresh token. Retry once after a short delay
+      // on transient failures before clearing the backend session - clearing
+      // prematurely forces a logout while Clerk is still signed in.
+      // Prefer skipCache (avoids near-expiry cached tokens); fall back if the
+      // installed Clerk version doesn't support that option.
+      inFlightRef.current = true
+      const fetchToken = () =>
+        getToken({{ skipCache: true }}).catch(() => getToken())
+      fetchToken()
+        .catch(() => new Promise(resolve => setTimeout(resolve, 500)).then(fetchToken))
+        .then(token => {{
+          if (token) {{
+            addEvents([ReflexEvent("{state}.set_clerk_session", {{token}})])
+            lastSentRef.current = {{ stateKey, addEvents }}
+          }} else {{
+            // Final failure: clear backend session but leave lastSentRef
+            // unchanged so the next trigger (reconnect, sign-in toggle, etc.)
+            // re-attempts the sync instead of being deduped away.
+            addEvents([ReflexEvent("{state}.clear_clerk_session")])
+          }}
+        }})
+        .catch(() => {{
+          addEvents([ReflexEvent("{state}.clear_clerk_session")])
+        }})
+        .finally(() => {{
+          inFlightRef.current = false
+        }})
   }}, [isLoaded, isSignedIn, addEvents, getToken])
 
   return (

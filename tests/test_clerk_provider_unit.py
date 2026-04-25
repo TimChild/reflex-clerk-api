@@ -15,7 +15,7 @@ def test_set_clerk_session_expired_token_clears(monkeypatch):
     from reflex_clerk_api.clerk_provider import ClerkState
 
     # Instantiate state in a framework-safe way for tests.
-    state = ClerkState(_reflex_internal_init=True)
+    state = ClerkState(_reflex_internal_init=True)  # pyright: ignore[reportCallIssue]
 
     async def fake_get_jwk_keys(self):
         return {}
@@ -36,7 +36,9 @@ def test_set_clerk_session_expired_token_clears(monkeypatch):
         raising=True,
     )
 
-    result = asyncio.run(ClerkState.set_clerk_session.fn(state, token="fake"))
+    result = asyncio.run(
+        ClerkState.set_clerk_session.fn(state, token="fake")  # pyright: ignore[reportAttributeAccessIssue]
+    )
     assert validate_calls["leeway"] == 60
     assert result == ClerkState.clear_clerk_session
 
