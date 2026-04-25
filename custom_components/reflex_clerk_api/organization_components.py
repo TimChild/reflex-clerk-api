@@ -1,3 +1,5 @@
+from typing import Any
+
 import reflex as rx
 
 from reflex_clerk_api.base import ClerkBase
@@ -58,7 +60,7 @@ class OrganizationProfile(ClerkBase):
     after_leave_organization_url: str | None = None
     "The full URL or path to navigate to after leaving an organization."
 
-    custom_pages: list | None = None
+    custom_pages: list[dict[str, Any]] | None = None
     "An array of custom pages to add to the organization profile."
 
     fallback: rx.Component | None = None

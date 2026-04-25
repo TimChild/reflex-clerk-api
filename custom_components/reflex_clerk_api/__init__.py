@@ -18,18 +18,18 @@ from .control_components import (
     signed_in,
     signed_out,
 )
+from .organization_components import (
+    create_organization,
+    organization_list,
+    organization_profile,
+    organization_switcher,
+)
 from .pages import add_sign_in_page, add_sign_up_page
 from .unstyled_components import (
     SignInButton,
     sign_in_button,
     sign_out_button,
     sign_up_button,
-)
-from .organization_components import (
-    create_organization,
-    organization_profile,
-    organization_switcher,
-    organization_list,
 )
 from .user_components import user_button, user_profile
 
