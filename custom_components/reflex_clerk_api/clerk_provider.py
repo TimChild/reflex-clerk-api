@@ -9,7 +9,7 @@ from typing import Any, ClassVar, Self, TypeVar, cast
 import authlib.jose.errors as jose_errors
 import clerk_backend_api
 import reflex as rx
-from authlib.jose import JWTClaims, jwt
+from authlib.jose import JsonWebKey, JWTClaims, jwt
 from reflex.event import EventCallback, EventType, IndividualEventType
 from reflex.utils.exceptions import ImmutableStateError
 
@@ -127,9 +127,10 @@ class ClerkState(rx.State):
         """
         logging.debug("Setting Clerk session")
         jwks = await self._get_jwk_keys()
+        key_set = JsonWebKey.import_key_set({"keys": jwks})
         try:
             decoded: JWTClaims = jwt.decode(
-                token, {"keys": jwks}, claims_options=self._claims_options
+                token, key_set, claims_options=self._claims_options
             )
         except jose_errors.DecodeError as e:
             # E.g. DecodeError -- Something went wrong just getting the JWT
