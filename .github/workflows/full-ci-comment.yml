@@ -4,6 +4,9 @@ on:
   issue_comment:
     types: [created]
 
+permissions:
+  contents: read
+
 jobs:
   trigger-check:
     if: |
@@ -11,6 +14,8 @@ jobs:
       contains(github.event.comment.body, '/run-full-ci') &&
       github.event.comment.author_association == 'OWNER'
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
     outputs:
       pr_head_sha: ${{ steps.pr.outputs.pr_head_sha }}
       pr_head_repo: ${{ steps.pr.outputs.pr_head_repo }}
@@ -42,6 +47,8 @@ jobs:
   comment-result:
     needs: [trigger-check, full-ci]
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
     # if the trigger-check job ran (i.e., the comment was valid)
     if: needs.trigger-check.result != 'skipped'
     steps:

@@ -8,9 +8,14 @@ on:
         required: true
         type: string
 
+permissions:
+  contents: read
+
 jobs:
   get-pr-info:
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
     outputs:
       head_sha: ${{ steps.pr-info.outputs.head_sha }}
       head_repo: ${{ steps.pr-info.outputs.head_repo }}
@@ -42,6 +47,8 @@ jobs:
     needs: [get-pr-info, full-ci]
     if: always()
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
     steps:
       - name: Comment on PR
         uses: actions/github-script@v7
