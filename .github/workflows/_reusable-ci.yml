@@ -59,7 +59,10 @@ jobs:
         shell: bash
         run: |
           uv venv --python ${{ matrix.python-versions }} --clear
-          uv pip install -e . "reflex>=0.8,<0.9" pytest pytest-pretty ruff pyright
+          # pytest-playwright + dotenv are needed for pyright to resolve imports
+          # in tests/test_demo.py and the demo app, even though we don't run them.
+          uv pip install -e . "reflex>=0.8,<0.9" \
+            pytest pytest-pretty pytest-playwright dotenv ruff pyright
 
       - name: Run Basic Checks
         if: inputs.check_type == 'basic' && matrix.reflex-version == 'locked'
