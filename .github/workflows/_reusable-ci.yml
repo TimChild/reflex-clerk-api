@@ -29,8 +29,17 @@ jobs:
     permissions:
       contents: read
     strategy:
+      fail-fast: false
       matrix:
         python-versions: ["3.11", "3.12", "3.13"]
+        reflex-version: ["locked"]
+        # Compat dimension: verify the package still works on the lower bound
+        # declared in pyproject.toml (`reflex>=0.8.0`). Bypasses uv.lock so a
+        # future bump that breaks 0.8.x will fail CI here instead of silently
+        # making the published package incompatible.
+        include:
+          - python-versions: "3.13"
+            reflex-version: "0.8"
     environment: ${{ inputs.environment || null }}
 
     steps:
@@ -45,13 +54,32 @@ jobs:
           python-version: ${{ matrix.python-versions }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Install with reflex 0.8.x (no lockfile)
+        if: matrix.reflex-version == '0.8'
+        shell: bash
+        run: |
+          uv venv --python ${{ matrix.python-versions }} --clear
+          # pytest-playwright + dotenv are needed for pyright to resolve imports
+          # in tests/test_demo.py and the demo app, even though we don't run them.
+          uv pip install -e . "reflex>=0.8,<0.9" \
+            pytest pytest-pretty pytest-playwright dotenv ruff pyright
+
       - name: Run Basic Checks
-        if: inputs.check_type == 'basic'
+        if: inputs.check_type == 'basic' && matrix.reflex-version == 'locked'
         uses: ./.github/actions/basic-checks
 
       - name: Run Full Checks
-        if: inputs.check_type == 'full'
+        if: inputs.check_type == 'full' && matrix.reflex-version == 'locked'
         uses: ./.github/actions/full-checks
         with:
           clerk-publishable-key: ${{ vars.CLERK_PUBLISHABLE_KEY }}
           clerk-secret-key: ${{ secrets.CLERK_SECRET_KEY }}
+
+      - name: Run Reflex 0.8.x Compat Checks
+        if: matrix.reflex-version == '0.8'
+        shell: bash
+        run: |
+          source .venv/bin/activate
+          ruff check .
+          pyright
+          pytest tests/test_clerk_provider_unit.py
